@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHΞNematic™ - VEO Video Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cropper.js for image cropping -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+    <style>
+      body {
+        background-color: #121212;
+        color: #E0E0E0;
+      }
+      .shen-border { border: 1px solid rgba(255, 255, 255, 0.1); }
+      .shen-bg-dark { background-color: #1E1E1E; }
+      .shen-bg-light { background-color: #2a2a2a; }
+      .shen-input { background-color: #252525; border: 1px solid #444; }
+      .shen-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.4); }
+      .shen-button-primary { background-color: #7c3aed; color: white; }
+      .shen-button-primary:hover { background-color: #6d28d9; }
+      .shen-button-secondary { background-color: #333; color: #E0E0E0; }
+      .shen-button-secondary:hover { background-color: #444; }
+      .shen-button-toggle[aria-pressed="true"] { background-color: #7c3aed; color: white; border-color: #7c3aed; }
+      .modal-content { animation: fadeIn 0.3s ease-out; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      .wavy-title {
+        font-weight: 800;
+        background: linear-gradient(90deg, #fff, #999, #fff);
+        background-size: 200% auto;
+        color: #fff;
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: wave 3s linear infinite;
+      }
+      @keyframes wave { to { background-position: 200% center; } }
+      textarea::-webkit-scrollbar { width: 8px; }
+      textarea::-webkit-scrollbar-track { background: #2a2a2a; border-radius: 4px; }
+      textarea::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+      textarea::-webkit-scrollbar-thumb:hover { background: #666; }
+      .loader {
+        width: 18px;
+        height: 18px;
+        border: 2px solid #FFF;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+      }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      #cropper-container > img { max-height: 50vh; }
+    </style>
+  </head>
+  <body class="font-sans">
+
+    <!-- MODALS -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-black/80 z-40 hidden"></div>
+    
+    <!-- API Key Modal -->
+    <div id="api-key-modal" class="fixed inset-0 flex items-center justify-center z-50 p-4 hidden">
+      <div class="shen-bg-dark shen-border rounded-2xl shadow-xl max-w-lg w-full p-8 text-center flex flex-col items-center modal-content">
+        <h2 class="text-3xl font-bold text-white mb-2">به SHΞNematic™ خوش آمدید</h2>
+        <p class="text-gray-400 mb-6">برای شروع، لطفاً کلید API گوگل خود را وارد کنید.</p>
+        <input id="api-key-input" type="password" class="w-full shen-input rounded-lg p-3 text-center mb-4" placeholder="کلید API خود را اینجا وارد کنید">
+        <button id="save-api-key-button" class="w-full px-6 py-3 shen-button-primary font-semibold rounded-lg transition-colors text-lg mb-4">ذخیره و ورود</button>
+        <p class="text-gray-500 text-sm">
+          کلید شما به صورت امن در مرورگر شما ذخیره می‌شود. برای دریافت کلید
+          <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:underline font-medium">اینجا</a>
+          کلیک کنید.
+        </p>
+      </div>
+    </div>
+
+    <!-- Help Tooltip Modal -->
+    <div id="help-modal" class="fixed inset-0 flex items-center justify-center z-50 p-4 hidden">
+        <div class="shen-bg-dark shen-border rounded-2xl shadow-xl max-w-md w-full p-6 modal-content">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="help-modal-title" class="text-xl font-bold text-white"></h3>
+                <button id="help-modal-close" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <p id="help-modal-content" class="text-gray-300"></p>
+            <p id="help-modal-status" class="text-center text-xl font-bold mt-4"></p>
+        </div>
+    </div>
+    
+    <!-- General Guide Modal -->
+    <div id="guide-modal" class="fixed inset-0 flex items-center justify-center z-50 p-4 hidden">
+        <div class="shen-bg-dark shen-border rounded-2xl shadow-xl max-w-2xl w-full p-6 modal-content flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-white">راهنمای استودیو</h3>
+                <button id="guide-modal-close" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="text-gray-300 space-y-4 overflow-y-auto max-h-[70vh] pr-2">
+                <p>به SHΞNematic™، استودیوی هوشمند ساخت ویدیو خوش آمدید. این راهنما به شما در استفاده از تمام قابلیت‌ها کمک می‌کند:</p>
+                <div class="space-y-3">
+                  <h4 class="text-lg font-semibold text-purple-400">۱. پرامپت (دستور متنی)</h4>
+                  <p>ایده اصلی ویدیوی خود را در باکس اصلی بنویسید. سعی کنید واضح و خلاق باشید. مثال: "یک روبات در حال اسکیت‌برد در یک شهر سایبرپانک".</p>
+                  
+                  <h4 class="text-lg font-semibold text-purple-400">۲. افزونه‌های جلوه‌های ویژه</h4>
+                  <p>با کلیک روی دکمه‌های زیر باکس متن، می‌توانید جلوه‌های سینمایی حرفه‌ای مانند "Drone shot" یا "Slow motion" را به پرامپت خود اضافه یا از آن حذف کنید.</p>
+                  
+                  <h4 class="text-lg font-semibold text-purple-400">۳. مهندسی پرامپت (Enhance Prompt)</h4>
+                  <p>پس از نوشتن ایده اولیه، روی دکمه مربع شکل ✨ در کنار باکس متن کلیک کنید. هوش مصنوعی پرامپت شما را به یک سناریوی دقیق و سینمایی تبدیل می‌کند تا بهترین نتیجه را از مدل Veo بگیرید.</p>
+                  
+                  <h4 class="text-lg font-semibold text-purple-400">۴. بارگذاری رسانه</h4>
+                  <p><strong>گسترش ویدیو:</strong> اگر ویدیویی دارید و می‌خواهید ادامه آن ساخته شود، آن را در بخش "بارگذاری ویدیو برای گسترش" آپلود کنید.</p>
+                  <p><strong>استفاده از تصاویر:</strong> برای ساخت ویدیو بر اساس یک یا چند تصویر (مثلاً برای تعیین شخصیت، فضا یا سبک)، آنها را در بخش "بارگذاری تصاویر مرجع" آپلود کنید. پس از آپلود، می‌توانید تصاویر را کراپ کنید.</p>
+
+                  <h4 class="text-lg font-semibold text-purple-400">۵. ساخت و دریافت ویدیو</h4>
+                  <p>پس از انجام مراحل بالا، روی دکمه "Generate Video" کلیک کنید. ویدیوهای ساخته شده در گالری پایین صفحه ظاهر می‌شوند و می‌توانید آن‌ها را دانلود یا تمام‌صفحه مشاهده کنید.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Cropper Modal -->
+    <div id="cropper-modal" class="fixed inset-0 flex items-center justify-center z-50 p-4 hidden">
+      <div class="shen-bg-dark shen-border rounded-2xl shadow-xl max-w-3xl w-full p-6 modal-content">
+        <h3 class="text-xl font-bold text-white mb-4">برش تصویر</h3>
+        <div id="cropper-container" class="mb-4 bg-black flex justify-center items-center">
+          <!-- Image will be inserted here by JS -->
+        </div>
+        <div class="flex justify-end gap-4">
+          <button id="cancel-crop-button" class="px-4 py-2 shen-button-secondary rounded-lg">انصراف</button>
+          <button id="confirm-crop-button" class="px-4 py-2 shen-button-primary rounded-lg">تایید و افزودن</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Main Application UI -->
+    <div id="main-app" class="h-screen flex flex-col hidden">
+      <header class="py-4 px-8 flex justify-between items-center z-10">
+        <h1 class="text-4xl md:text-5xl tracking-wide wavy-title">SHΞNematic™</h1>
+        <button id="open-guide-button" class="p-2 shen-button-secondary rounded-full hover:bg-purple-500/20" title="راهنما">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /></svg>
+        </button>
+      </header>
+
+      <main class="w-full max-w-6xl mx-auto flex-grow flex flex-col p-4 overflow-y-auto space-y-4">
+        <!-- Prompt Section -->
+        <div class="shen-bg-dark shen-border rounded-2xl p-4 flex flex-col gap-3">
+          <div class="flex items-start gap-4">
+            <div class="flex-grow">
+              <div class="relative">
+                <textarea id="prompt-input" class="w-full shen-input rounded-lg p-3 pr-10 text-lg leading-relaxed resize-none transition-all duration-300" rows="3" placeholder="ایده اصلی ویدیوی خود را اینجا بنویسید..."></textarea>
+                <button id="copy-prompt-button" class="absolute top-3 right-3 text-gray-400 hover:text-white" title="کپی کردن پرامپت">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375-3.375-3.375M9 13.5l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V13.5m-1.5-9-3.375-3.375M12.75 3v6.75h6.75" /></svg>
+                </button>
+              </div>
+              <div class="mt-3">
+                  <label class="text-sm font-medium text-gray-400 block mb-2">اعمال افزونه های جلوه‌های ویژه:</label>
+                  <div id="creative-prompts-container" class="flex flex-wrap gap-2"></div>
+              </div>
+            </div>
+            <div class="flex flex-col items-center text-center w-40 flex-shrink-0">
+                <button id="enhance-prompt-button" class="w-20 h-20 shen-button-primary rounded-2xl flex items-center justify-center transition-all duration-300 hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                  <span id="enhance-prompt-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10"><path stroke-linecap="round" stroke-linejoin="round" d="m12.75 3.641-6.32 1.312-1.312 6.32.234 1.943 2.023 2.023.234 1.943 6.32 1.312 1.312-6.32-.234-1.943-2.023-2.023-.234-1.943-6.32-1.312Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.641 15 3m-2.25.641-1.313 6.32m2.25-6.962 1.313 6.32M15 3l2.25.641m-2.25-.641 6.32 1.312m0 0-1.312 6.32m1.312-6.32.234 1.943m-.234-1.943-2.023 2.023m2.023-2.023.234 1.943m-.234-1.943 6.32 1.312m0 0-1.312 6.32m1.312-6.32-.234 1.943m.234 1.943 2.023 2.023m-2.023-2.023-.234 1.943m-.234-1.943-6.32 1.312m0 0 1.312 6.32m-1.312-6.32-.234-1.943m.234 1.943 2.023-2.023m-2.023-2.023-.234-1.943m.234 1.943-6.32-1.312m0 0 1.312-6.32M9 21l-2.25-.641m2.25.641 1.313-6.32m-2.25 6.962-1.313-6.32M9 21l-2.25-.641M9 21l-6.32-1.312m0 0 1.312-6.32m-1.312 6.32-.234-1.943m.234 1.943 2.023-2.023m-2.023-2.023-.234-1.943m.234 1.943 6.32-1.312m0 0-1.312-6.32m1.312 6.32.234 1.943M6.75 3.641 9 3m-2.25.641 1.313 6.32M9 3l-2.25.641M9 3 2.68 4.353m0 0L4 10.673m-1.32.234 2.023 2.023m-2.023-2.023.234 1.943M4 10.673 2.68 17.00m0 0L4 10.673" /></svg>
+                  </span>
+                  <span id="enhance-prompt-text" class="hidden"></span>
+                </button>
+                <p class="text-xs text-gray-400 mt-2 px-2">پس از نوشتن پرامپت، از این دکمه برای مهندسی دقیق پرامپت خود استفاده نمایید.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Video for Extension -->
+          <div class="shen-bg-dark shen-border rounded-2xl p-4 flex flex-col items-center justify-center min-h-[200px]">
+            <h3 class="text-lg font-semibold mb-2">بارگذاری ویدیو برای گسترش</h3>
+            <div id="video-upload-slot" class="w-full flex justify-center"></div>
+          </div>
+          <!-- Images for Reference -->
+          <div class="shen-bg-dark shen-border rounded-2xl p-4 flex flex-col items-center justify-center min-h-[200px]">
+            <h3 class="text-lg font-semibold mb-2">بارگذاری تصاویر مرجع</h3>
+            <div id="image-upload-grid" class="flex flex-wrap gap-3 justify-center"></div>
+          </div>
+        </div>
+        
+        <!-- Action Button -->
+        <button id="generate-button" class="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors text-xl disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-3">
+          <span id="generate-button-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" /></svg>
+          </span>
+          <span id="generate-button-text">Generate Video</span>
+        </button>
+
+        <!-- Results Gallery -->
+        <div id="results-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+      </main>
+
+      <footer class="text-center p-4 text-xs text-gray-600">
+        <a href="https://t.me/shervini" target="_blank" rel="noopener noreferrer" class="hover:text-purple-400">Exclusive SHΞN™ made</a>
+      </footer>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
